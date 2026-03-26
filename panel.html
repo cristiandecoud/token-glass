@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Token Glass</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f13;
+      color: #f0f0f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 0 16px;
+      border-bottom: 1px solid #353548;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-shrink: 0;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px 12px 0;
+      border-right: 1px solid #353548;
+      margin-right: 12px;
+    }
+
+    header h1 { font-size: 14px; font-weight: 600; color: #fff; }
+    header span { font-size: 11px; color: #888; }
+
+    /* Tab bar */
+    .tab-bar { display: flex; align-items: stretch; gap: 2px; }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #777;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 0 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active { color: #f0f0f0; border-bottom-color: #9d7bff; }
+
+    .tab-badge {
+      background: #9d7bff;
+      color: #0f0f13;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      min-width: 16px;
+      text-align: center;
+      display: none;
+    }
+    .tab-badge.visible { display: inline-block; }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* INPUT PANEL */
+    .input-panel {
+      width: 40%;
+      min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #353548;
+    }
+
+    .panel-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: #999;
+      text-transform: uppercase;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #353548;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .clear-btn {
+      background: none;
+      border: 1px solid #454565;
+      color: #aaa;
+      font-size: 10px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .clear-btn:hover { color: #eee; background: #353548; border-color: #606080; }
+
+    /* Token display area */
+    .token-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Visible colored display */
+    #tokenDisplay {
+      position: absolute;
+      inset: 0;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      word-break: break-all;
+      white-space: pre-wrap;
+      overflow-y: auto;
+      cursor: text;
+      pointer-events: none;
+    }
+
+    .placeholder { color: #777; }
+    .part-header  { color: #ff6b9d; }
+    .part-payload { color: #6bcfff; }
+    .part-sig     { color: #6bff9e; }
+    .dot-sep      { color: #777; }
+
+    /* Hidden textarea that captures input */
+    #hiddenInput {
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      color: transparent;
+      caret-color: #f0f0f0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      padding: 12px 14px;
+      word-break: break-all;
+      overflow-y: auto;
+    }
+
+    /* OUTPUT PANEL */
+    .output-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .output-header {
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .search-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      margin-left: auto;
+      color: #8e92ab;
+    }
+
+    .search-input {
+      width: 170px;
+      background: #13131a;
+      border: 1px solid #454565;
+      border-radius: 4px;
+      color: #f0f0f0;
+      font: inherit;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      padding: 4px 8px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: #707590;
+    }
+
+    .search-count {
+      min-width: 36px;
+      color: #8e92ab;
+      text-align: center;
+    }
+
+    .search-btn {
+      background: none;
+      border: 1px solid #505575;
+      color: inherit;
+      font-size: 10px;
+      line-height: 1;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .search-btn:hover { color: #e7eaf9; border-color: #707590; }
+
+    .search-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .sections {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section { border-bottom: 1px solid #353548; }
+
+    .section-header {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .copy-btn {
+      position: relative;
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: inherit;
+      padding: 2px;
+      cursor: pointer;
+      opacity: 0.4;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .copy-btn:hover { opacity: 1; }
+    .copy-btn::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #252535;
+      color: #ccc;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .copy-btn:hover::after { opacity: 1; }
+
+    .section-header .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .header-label  { color: #ff6b9d; }
+    .payload-label { color: #6bcfff; }
+    .sig-label     { color: #6bff9e; }
+    .header-label  .dot { background: #ff6b9d; }
+    .payload-label .dot { background: #6bcfff; }
+    .sig-label     .dot { background: #6bff9e; }
+
+    .section-content { padding: 0 14px 12px; }
+
+    .json-output {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11.5px;
+      line-height: 1.7;
+      white-space: normal;
+      word-break: break-word;
+      padding-left: 12px;
+    }
+
+    .json-tree {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .json-node { margin: 0; }
+
+    .json-children {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .json-summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .json-summary::-webkit-details-marker { display: none; }
+
+    .json-line {
+      position: relative;
+      padding-left: calc(var(--depth, 0) * 16px);
+      min-height: 20px;
+    }
+
+    .json-summary,
+    .json-line,
+    .json-closing {
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+    }
+
+    .json-disclosure {
+      position: absolute;
+      left: calc(var(--depth, 0) * 16px);
+      transform: translateX(-12px);
+      display: inline-flex;
+      width: 10px;
+      color: #7e82a0;
+      justify-content: center;
+    }
+
+    .json-node > .json-summary .json-disclosure::before { content: '▸'; }
+    .json-node[open] > .json-summary .json-disclosure::before { content: '▾'; }
+
+    .json-open-label,
+    .json-closed-label {
+      min-width: 0;
+      display: inline-flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+
+    .json-node > .json-summary .json-open-label { display: none; }
+    .json-node[open] > .json-summary .json-open-label { display: inline-flex; }
+    .json-node[open] > .json-summary .json-closed-label { display: none; }
+
+    .json-meta,
+    .json-ellipsis {
+      color: #7e82a0;
+    }
+
+    .json-meta {
+      margin-left: 8px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .json-preview {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .json-punct  { color: #99a3c0; }
+    .json-key    { color: #9d7bff; }
+    .json-string { color: #a8e6a3; }
+    .json-number { color: #ffcc7a; }
+    .json-bool   { color: #ff9e64; }
+    .json-null   { color: #888; }
+
+    .search-hit {
+      background: rgba(255, 207, 122, 0.22);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
+    .search-hit.active {
+      background: rgba(157, 123, 255, 0.38);
+      box-shadow: 0 0 0 1px rgba(157, 123, 255, 0.4);
+    }
+
+    .sig-value {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: #888;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #6a6a88;
+    }
+    .empty-state p { font-size: 12px; }
+
+    .example-btn {
+      margin-top: 8px;
+      background: none;
+      border: 1px solid #9d7bff44;
+      color: #9d7bff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .example-btn:hover {
+      background: rgba(157, 123, 255, 0.1);
+      border-color: #9d7bff88;
+    }
+
+    .error-state {
+      padding: 16px 14px;
+      font-size: 12px;
+      color: #ff6b6b;
+    }
+
+    /* Captured panel */
+    #capturedPanel {
+      display: none;
+      width: 40%;
+      min-width: 260px;
+      flex-direction: column;
+      border-right: 1px solid #353548;
+    }
+    #capturedPanel.active { display: flex; }
+    .input-panel.hidden { display: none; }
+
+    .captured-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #353548;
+      flex-shrink: 0;
+    }
+
+    .token-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-separator {
+      padding: 5px 14px;
+      font-size: 9px;
+      color: #777;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-top: 1px solid #353548;
+      border-bottom: 1px solid #353548;
+      background: #0d0d11;
+    }
+
+    .token-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #353548;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .token-row:hover { background: #1a1a28; }
+    .token-item.selected .token-row { background: #1a1428; border-left: 2px solid #9d7bff; padding-left: 12px; }
+    .token-item.info-open .token-row { border-bottom: 1px solid #201b30; }
+
+    .token-row-info { flex: 1; min-width: 0; }
+
+    .token-row-url {
+      font-size: 11px;
+      font-weight: 500;
+      color: #c8a6ff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .token-row-source {
+      font-size: 10px;
+      color: #777;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 1px 6px;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+
+    .source-request {
+      color: #7ad7ff;
+      background: rgba(28, 102, 153, 0.22);
+      border: 1px solid rgba(62, 152, 214, 0.35);
+    }
+
+    .source-response {
+      color: #7dffb0;
+      background: rgba(25, 102, 62, 0.22);
+      border: 1px solid rgba(69, 189, 115, 0.35);
+    }
+
+    .source-unknown {
+      color: #c1c5d8;
+      background: rgba(90, 93, 115, 0.22);
+      border: 1px solid rgba(120, 126, 154, 0.35);
+    }
+
+    .source-path {
+      min-width: 0;
+      color: #7b809b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .token-row-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .token-row-time { font-size: 9px; color: #888; }
+
+    .token-info-btn {
+      background: none;
+      border: 1px solid #454565;
+      color: #a0a4be;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .token-info-btn:hover { color: #e0e4f7; border-color: #707598; }
+
+    .token-detail-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      padding: 10px 14px 12px;
+      border-bottom: 1px solid #353548;
+      background: linear-gradient(180deg, rgba(29, 22, 43, 0.58), rgba(17, 17, 25, 0.92));
+    }
+
+    .token-detail-row {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .token-detail-row.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .token-detail-label {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8890a8;
+    }
+
+    .token-detail-value {
+      font-size: 10px;
+      color: #cfd4e6;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .expired-badge {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #ff6b6b;
+      background: #2a1010;
+      border: 1px solid #3a1515;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .captured-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #6a6a88;
+      padding: 20px;
+      text-align: center;
+    }
+    .captured-empty p { font-size: 12px; line-height: 1.5; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #353548; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <h1>Token Glass</h1>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="decode">Decode</button>
+    <button class="tab-btn" data-tab="captured">
+      Captured
+      <span class="tab-badge" id="capturedBadge">0</span>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <div id="capturedPanel">
+    <div class="captured-header panel-label">
+      Captured
+      <button class="clear-btn" id="clearCapturedBtn">Clear</button>
+    </div>
+    <div class="token-list" id="tokenList">
+      <div class="captured-empty">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <p>Make network requests and JWTs will appear here automatically</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-panel">
+    <div class="panel-label">
+      Token
+      <button class="clear-btn" id="clearBtn">Clear</button>
+    </div>
+    <div class="token-wrapper">
+      <div id="tokenDisplay"><span class="placeholder">Paste your JWT here...</span></div>
+      <textarea id="hiddenInput" spellcheck="false" autocomplete="off"></textarea>
+    </div>
+  </div>
+
+  <div class="output-panel">
+    <div class="panel-label output-header">
+      <span>Decoded</span>
+      <div class="search-bar" id="searchBar">
+        <input id="searchInput" class="search-input" type="text" placeholder="Find in decoded" spellcheck="false" />
+        <span id="searchCount" class="search-count">0/0</span>
+        <button id="searchPrevBtn" class="search-btn" type="button" aria-label="Previous result">↑</button>
+        <button id="searchNextBtn" class="search-btn" type="button" aria-label="Next result">↓</button>
+        <button id="searchCloseBtn" class="search-btn" type="button" aria-label="Close search">✕</button>
+      </div>
+    </div>
+    <div class="sections" id="output"></div>
+  </div>
+</div>
+
+<script src="panel.js"></script>
+</body>
+</html>
