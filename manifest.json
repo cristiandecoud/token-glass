@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Token Glass",
   "version": "0.1.0",
-  "description": "DevTools extension for inspecting and decoding JWTs in real time. Automatically captures tokens from network requests. Built by C. Decoud.",
-  "author": "C. Decoud",
+  "description": "DevTools extension for inspecting and decoding JWTs in real time. Automatically captures tokens from network requests.",
+  "author": "CDigital Studio",
   "permissions": ["storage", "contextMenus"],
   "action": {
     "default_popup": "popup.html",
