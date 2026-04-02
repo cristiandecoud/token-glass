@@ -40,6 +40,7 @@ function extractJWTs(text, url, source, meta = {}) {
 chrome.devtools.network.onRequestFinished.addListener((req) => {
   const url = req.request.url;
   const requestMeta = {
+    requestId: Math.random().toString(36).slice(2),
     method: req.request.method,
     status: req.response.status,
     statusText: req.response.statusText,
@@ -78,12 +79,27 @@ chrome.devtools.network.onRequestFinished.addListener((req) => {
     sourceName: 'URL parameter',
   });
 
-  // 4. Response body (async)
+  // 4. Response body (async) — field-aware for JSON responses
   req.getContent((body) => {
     if (!body || body.length === 0) return;
     const scan = body.length > MAX_BODY_SCAN
       ? body.slice(0, MAX_BODY_SCAN)
       : body;
+
+    // Extract JWTs with their JSON field names (e.g. access_token, refresh_token)
+    const fieldRe = /"([^"]{1,64})":\s*"(eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})"/g;
+    let fieldMatch;
+    while ((fieldMatch = fieldRe.exec(scan)) !== null) {
+      extractJWTs(fieldMatch[2], url, `Response Body: ${fieldMatch[1]}`, {
+        ...requestMeta,
+        sourceSide: 'response',
+        sourceKind: 'body',
+        sourceName: fieldMatch[1],
+      });
+    }
+
+    // Generic fallback for JWTs not wrapped in a JSON key-value pair
+    // (the `seen` set in extractJWTs deduplicates overlap with field matches above)
     extractJWTs(scan, url, 'Response Body', {
       ...requestMeta,
       sourceSide: 'response',

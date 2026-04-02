@@ -37,6 +37,7 @@ let capturedTokens = [];
 let newCount = 0;
 let selectedId = null;
 let expandedInfoIds = new Set();
+let expandedGroupIds = new Set();
 let searchQuery = '';
 let searchMatches = [];
 let activeSearchIndex = -1;
@@ -87,18 +88,78 @@ function isExpired(token) {
   } catch { return false; }
 }
 
-function shortUrl(url) {
-  try {
-    const u = new URL(url);
-    const path = u.pathname.length > 30 ? '…' + u.pathname.slice(-28) : u.pathname;
-    return u.hostname + path;
-  } catch { return url.slice(0, 40); }
-}
 
 function getSourceSideLabel(entry) {
-  if (entry.sourceSide === 'request') return 'REQUEST';
-  if (entry.sourceSide === 'response') return 'RESPONSE';
+  if (entry.sourceSide === 'request') return '→ REQ';
+  if (entry.sourceSide === 'response') return '← RES';
   return 'SOURCE';
+}
+
+function getMethodClass(method) {
+  const m = (method || '').toUpperCase();
+  if (m === 'GET')    return 'method-get';
+  if (m === 'POST')   return 'method-post';
+  if (m === 'PUT')    return 'method-put';
+  if (m === 'PATCH')  return 'method-patch';
+  if (m === 'DELETE') return 'method-delete';
+  return 'method-other';
+}
+
+function getStatusClass(status) {
+  if (!status) return '';
+  if (status >= 200 && status < 300) return 'status-2xx';
+  if (status >= 300 && status < 400) return 'status-3xx';
+  if (status >= 400 && status < 500) return 'status-4xx';
+  return 'status-5xx';
+}
+
+function shortPath(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.length > 35 ? '…' + u.pathname.slice(-33) : u.pathname;
+    return u.hostname + path;
+  } catch { return url.slice(0, 45); }
+}
+
+function buildRenderItems(tokens) {
+  const items = [];
+  const currentGroups = new Map();
+  const groupOrder = [];
+
+  function flushGroups() {
+    for (const key of groupOrder) {
+      items.push({ type: 'group', ...currentGroups.get(key) });
+    }
+    currentGroups.clear();
+    groupOrder.length = 0;
+  }
+
+  for (const entry of tokens) {
+    if (entry._separator) {
+      flushGroups();
+      items.push({ type: 'separator', url: entry.url });
+      continue;
+    }
+    // Each unique requestId = one network request = one group.
+    // Fallback to entry.id so tokens without requestId each get their own group.
+    const key = entry.requestId ?? entry.id;
+    if (!currentGroups.has(key)) {
+      currentGroups.set(key, {
+        groupId: key,
+        url: entry.url,
+        method: entry.method,
+        status: entry.status,
+        statusText: entry.statusText,
+        mimeType: entry.mimeType,
+        timestamp: entry.timestamp,
+        entries: [],
+      });
+      groupOrder.push(key);
+    }
+    currentGroups.get(key).entries.push(entry);
+  }
+  flushGroups();
+  return items;
 }
 
 function getSourceKindLabel(entry) {
@@ -151,27 +212,53 @@ function renderInfoRow(label, value, className = '') {
   </div>`;
 }
 
-function renderTokenInfo(entry) {
-  const details = getTokenInsights(entry.token);
-  const statusText = entry.status
-    ? `${entry.status}${entry.statusText ? ` ${entry.statusText}` : ''}`
+function renderGroupInfo(group) {
+  const statusText = group.status
+    ? `${group.status}${group.statusText ? ` ${group.statusText}` : ''}`
     : '—';
-  const transport = `${getSourceSideLabel(entry)} · ${getSourceKindLabel(entry)}`;
-
-  return `<div class="token-detail-panel">
-    ${renderInfoRow('Endpoint', entry.url, 'full-width')}
-    ${renderInfoRow('Transport', transport)}
-    ${renderInfoRow('Property', getSourcePropertyLabel(entry))}
-    ${renderInfoRow('Method', entry.method || '—')}
+  return `<div class="token-detail-panel group-detail-panel">
+    ${renderInfoRow('Endpoint', group.url, 'full-width')}
+    ${renderInfoRow('Method', group.method || '—')}
     ${renderInfoRow('Status', statusText)}
-    ${renderInfoRow('Mime', entry.mimeType || '—')}
-    ${renderInfoRow('Captured at', formatCapturedAt(entry.timestamp))}
-    ${renderInfoRow('alg', shortValue(details.alg))}
-    ${renderInfoRow('kid', shortValue(details.kid))}
-    ${renderInfoRow('iss', shortValue(details.iss))}
-    ${renderInfoRow('sub', shortValue(details.sub))}
-    ${renderInfoRow('aud', shortValue(details.aud))}
-    ${renderInfoRow('exp', shortValue(details.exp))}
+    ${renderInfoRow('Mime', group.mimeType || '—')}
+    ${renderInfoRow('Captured at', formatCapturedAt(group.timestamp))}
+  </div>`;
+}
+
+function renderTokenClaims(entry) {
+  const details = getTokenInsights(entry.token);
+  const rows = [
+    details.alg && renderInfoRow('alg', shortValue(details.alg)),
+    details.kid && renderInfoRow('kid', shortValue(details.kid)),
+    details.iss && renderInfoRow('iss', shortValue(details.iss)),
+    details.sub && renderInfoRow('sub', shortValue(details.sub)),
+    details.aud && renderInfoRow('aud', shortValue(details.aud)),
+    details.exp && renderInfoRow('exp', shortValue(details.exp)),
+  ].filter(Boolean);
+
+  if (!rows.length) return '';
+  return `<div class="token-detail-panel token-claims-panel">${rows.join('')}</div>`;
+}
+
+function renderTokenItem(entry) {
+  const expired = isExpired(entry.token);
+  const selected = entry.id === selectedId ? 'selected' : '';
+  const expanded = expandedInfoIds.has(entry.id);
+  return `<div class="token-item ${selected} ${expanded ? 'info-open' : ''}">
+    <div class="token-row" data-id="${entry.id}">
+      <div class="token-row-info">
+        <div class="token-row-source">
+          <span class="source-badge source-${entry.sourceSide || 'unknown'}">${escapeHtml(getSourceSideLabel(entry))}</span>
+          <span class="source-path">${escapeHtml(getSourceKindLabel(entry))} · <strong class="source-name">${escapeHtml(getSourcePropertyLabel(entry))}</strong></span>
+        </div>
+      </div>
+      <div class="token-row-meta">
+        <span class="token-row-time">${relativeTime(entry.timestamp)}</span>
+        ${expired ? '<span class="expired-badge">EXPIRED</span>' : ''}
+        <button class="token-info-btn" data-action="toggle-info" data-id="${entry.id}">${expanded ? 'Hide' : 'Info'}</button>
+      </div>
+    </div>
+    ${expanded ? renderTokenClaims(entry) : ''}
   </div>`;
 }
 
@@ -186,29 +273,27 @@ function renderTokenList() {
     return;
   }
 
-  tokenList.innerHTML = capturedTokens.map(entry => {
-    const expired = isExpired(entry.token);
-    const selected = entry.id === selectedId ? 'selected' : '';
-    const expanded = expandedInfoIds.has(entry.id);
-    if (entry._separator) {
-      return `<div class="nav-separator">↪ ${entry.url}</div>`;
+  const items = buildRenderItems(capturedTokens);
+
+  tokenList.innerHTML = items.map(item => {
+    if (item.type === 'separator') {
+      return `<div class="nav-separator">↪ ${escapeHtml(item.url)}</div>`;
     }
-    return `<div class="token-item ${selected} ${expanded ? 'info-open' : ''}">
-      <div class="token-row" data-id="${entry.id}">
-        <div class="token-row-info">
-          <div class="token-row-url">${shortUrl(entry.url)}</div>
-          <div class="token-row-source">
-            <span class="source-badge source-${entry.sourceSide || 'unknown'}">${getSourceSideLabel(entry)}</span>
-            <span class="source-path">${getSourceKindLabel(entry)}: ${escapeHtml(getSourcePropertyLabel(entry))}</span>
-          </div>
-        </div>
-        <div class="token-row-meta">
-          <span class="token-row-time">${relativeTime(entry.timestamp)}</span>
-          ${expired ? '<span class="expired-badge">EXPIRED</span>' : ''}
-          <button class="token-info-btn" data-action="toggle-info" data-id="${entry.id}">${expanded ? 'Hide' : 'Info'}</button>
-        </div>
+    const { groupId, url, method, status, entries } = item;
+    const count = entries.length;
+    const groupExpanded = expandedGroupIds.has(groupId);
+    return `<div class="endpoint-group">
+      <div class="endpoint-group-header">
+        ${method ? `<span class="method-badge ${getMethodClass(method)}">${escapeHtml(method)}</span>` : ''}
+        <span class="endpoint-path">${escapeHtml(shortPath(url))}</span>
+        ${status ? `<span class="status-badge ${getStatusClass(status)}">${status}</span>` : ''}
+        <span class="endpoint-token-count">${count} token${count !== 1 ? 's' : ''}</span>
+        <button class="group-info-btn" data-group-id="${escapeHtml(groupId)}">${groupExpanded ? 'Hide' : 'Details'}</button>
       </div>
-      ${expanded ? renderTokenInfo(entry) : ''}
+      ${groupExpanded ? renderGroupInfo(item) : ''}
+      <div class="endpoint-group-tokens">
+        ${entries.map(e => renderTokenItem(e)).join('')}
+      </div>
     </div>`;
   }).join('');
 
@@ -220,8 +305,20 @@ function renderTokenList() {
       hiddenInput.value = entry.token;
       decode(entry.token);
       renderTokenList();
-      // Switch to decode tab to show output if on mobile-ish layout,
-      // but keep on captured tab so list stays visible (output is shared on the right)
+    });
+  });
+
+  tokenList.querySelectorAll('.group-info-btn[data-group-id]').forEach(button => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const gid = button.dataset.groupId;
+      if (expandedGroupIds.has(gid)) {
+        expandedGroupIds.delete(gid);
+      } else {
+        expandedGroupIds.add(gid);
+      }
+      renderTokenList();
     });
   });
 
@@ -275,6 +372,7 @@ clearCapturedBtn.addEventListener('click', () => {
   capturedTokens = [];
   selectedId = null;
   expandedInfoIds = new Set();
+  expandedGroupIds = new Set();
   newCount = 0;
   capturedBadge.textContent = '0';
   capturedBadge.classList.remove('visible');

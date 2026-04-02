@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python3 -c \"from PIL import Image; print\\(''PIL ok''\\)\")",
-      "Bash(grep -E \"\\\\.\\(html|css\\)$\")"
+      "Bash(grep -E \"\\\\.\\(html|css\\)$\")",
+      "Bash(gh auth:*)",
+      "Bash(gh gist:*)"
     ]
   }
 }
