@@ -24,7 +24,10 @@
   <div id="capturedPanel">
     <div class="captured-header panel-label">
       Captured
-      <button class="clear-btn" id="clearCapturedBtn">Clear</button>
+      <div class="captured-header-actions">
+        <button class="clear-btn" id="collapseAllBtn">Collapse all</button>
+        <button class="clear-btn" id="clearCapturedBtn">Clear</button>
+      </div>
     </div>
     <div class="token-list" id="tokenList">
       <div class="captured-empty">
@@ -37,15 +40,37 @@
   </div>
 
   <div class="input-panel">
-    <div class="panel-label">
-      Token
-      <button class="clear-btn" id="clearBtn">Clear</button>
+    <div class="primary-slot">
+      <div class="panel-label">
+        Token
+        <div class="primary-slot-actions">
+          <button class="clear-btn" id="clearBtn">Clear</button>
+          <button class="clear-btn" id="compareToggleBtn">+ Compare</button>
+        </div>
+      </div>
+      <div class="token-wrapper">
+        <div id="tokenDisplay"><span class="placeholder">Paste your JWT here...</span></div>
+        <textarea id="hiddenInput" spellcheck="false" autocomplete="off"></textarea>
+      </div>
     </div>
-    <div class="token-wrapper">
-      <div id="tokenDisplay"><span class="placeholder">Paste your JWT here...</span></div>
-      <textarea id="hiddenInput" spellcheck="false" autocomplete="off"></textarea>
+    <div class="compare-slot" id="compareSlot">
+      <div class="panel-label">
+        <div class="compare-slot-label-inner">
+          <span class="diff-slot-badge diff-badge-a">A</span>
+          <span class="compare-arrow">→</span>
+          <span class="diff-slot-badge diff-badge-b">B</span>
+          <span class="compare-slot-title">Compare with</span>
+        </div>
+        <button class="clear-btn" id="compareClearBtn">Clear</button>
+      </div>
+      <div class="token-wrapper">
+        <div id="compareDisplay"><span class="placeholder">Paste second JWT…</span></div>
+        <textarea id="compareInput" spellcheck="false" autocomplete="off"></textarea>
+      </div>
     </div>
   </div>
+
+  <div class="resize-handle" id="resizeHandle"></div>
 
   <div class="output-panel">
     <div class="panel-label output-header">

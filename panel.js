@@ -1,4 +1,4 @@
-import { escapeHtml, renderJsonTree } from './json-tree.js';
+import { escapeHtml, renderJsonTree, renderJsonNode } from './json-tree.js';
 
 const copyIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const checkIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -32,12 +32,22 @@ const capturedBadge = document.getElementById('capturedBadge');
 const tokenList = document.getElementById('tokenList');
 const clearCapturedBtn = document.getElementById('clearCapturedBtn');
 
+// --- Compare slot ---
+const compareSlot      = document.getElementById('compareSlot');
+const compareInput     = document.getElementById('compareInput');
+const compareDisplay   = document.getElementById('compareDisplay');
+const compareClearBtn  = document.getElementById('compareClearBtn');
+const compareToggleBtn = document.getElementById('compareToggleBtn');
+
 let activeTab = 'decode';
 let capturedTokens = [];
 let newCount = 0;
 let selectedId = null;
 let expandedInfoIds = new Set();
 let expandedGroupIds = new Set();
+let collapsedGroupIds = new Set();
+let diffSlotAId = null;
+let diffSlotBId = null;
 let searchQuery = '';
 let searchMatches = [];
 let activeSearchIndex = -1;
@@ -60,6 +70,8 @@ tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     activeTab = btn.dataset.tab;
     tabBtns.forEach(b => b.classList.toggle('active', b === btn));
+    capturedPanel.classList.remove('active');
+    inputPanel.classList.remove('hidden');
     if (activeTab === 'captured') {
       capturedPanel.classList.add('active');
       inputPanel.classList.add('hidden');
@@ -67,9 +79,6 @@ tabBtns.forEach(btn => {
       capturedBadge.textContent = '0';
       capturedBadge.classList.remove('visible');
       renderTokenList();
-    } else {
-      capturedPanel.classList.remove('active');
-      inputPanel.classList.remove('hidden');
     }
   });
 });
@@ -253,9 +262,11 @@ function renderTokenItem(entry) {
         </div>
       </div>
       <div class="token-row-meta">
-        <span class="token-row-time">${relativeTime(entry.timestamp)}</span>
+        <span class="token-row-time" data-ts="${entry.timestamp}">${relativeTime(entry.timestamp)}</span>
         ${expired ? '<span class="expired-badge">EXPIRED</span>' : ''}
         <button class="token-info-btn" data-action="toggle-info" data-id="${entry.id}">${expanded ? 'Hide' : 'Info'}</button>
+        ${diffSlotAId === entry.id ? '<span class="diff-slot-badge diff-badge-a">A</span>' : diffSlotBId === entry.id ? '<span class="diff-slot-badge diff-badge-b">B</span>' : ''}
+        <button class="token-diff-btn" data-id="${entry.id}">Diff</button>
       </div>
     </div>
     ${expanded ? renderTokenClaims(entry) : ''}
@@ -282,8 +293,10 @@ function renderTokenList() {
     const { groupId, url, method, status, entries } = item;
     const count = entries.length;
     const groupExpanded = expandedGroupIds.has(groupId);
+    const tokensCollapsed = collapsedGroupIds.has(groupId);
     return `<div class="endpoint-group">
       <div class="endpoint-group-header">
+        <button class="group-collapse-btn" data-collapse-id="${escapeHtml(groupId)}" title="${tokensCollapsed ? 'Show tokens' : 'Hide tokens'}">${tokensCollapsed ? '▶' : '▼'}</button>
         ${method ? `<span class="method-badge ${getMethodClass(method)}">${escapeHtml(method)}</span>` : ''}
         <span class="endpoint-path">${escapeHtml(shortPath(url))}</span>
         ${status ? `<span class="status-badge ${getStatusClass(status)}">${status}</span>` : ''}
@@ -291,9 +304,9 @@ function renderTokenList() {
         <button class="group-info-btn" data-group-id="${escapeHtml(groupId)}">${groupExpanded ? 'Hide' : 'Details'}</button>
       </div>
       ${groupExpanded ? renderGroupInfo(item) : ''}
-      <div class="endpoint-group-tokens">
+      ${tokensCollapsed ? '' : `<div class="endpoint-group-tokens">
         ${entries.map(e => renderTokenItem(e)).join('')}
-      </div>
+      </div>`}
     </div>`;
   }).join('');
 
@@ -302,8 +315,24 @@ function renderTokenList() {
       const entry = capturedTokens.find(t => t.id === row.dataset.id);
       if (!entry) return;
       selectedId = entry.id;
+      diffSlotAId = entry.id;
       hiddenInput.value = entry.token;
-      decode(entry.token);
+      renderTokenColors(entry.token);
+      renderOutput();
+      renderTokenList();
+    });
+  });
+
+  tokenList.querySelectorAll('.group-collapse-btn[data-collapse-id]').forEach(button => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const gid = button.dataset.collapseId;
+      if (collapsedGroupIds.has(gid)) {
+        collapsedGroupIds.delete(gid);
+      } else {
+        collapsedGroupIds.add(gid);
+      }
       renderTokenList();
     });
   });
@@ -335,12 +364,24 @@ function renderTokenList() {
       renderTokenList();
     });
   });
+
+  tokenList.querySelectorAll('.token-diff-btn[data-id]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const entry = capturedTokens.find(t => t.id === btn.dataset.id);
+      if (!entry) return;
+      addToDiffSlot(entry.token, entry.id);
+    });
+  });
 }
 
-// Relative time updater
+// Relative time updater — patches only the time text nodes, no full re-render
 setInterval(() => {
-  if (activeTab === 'captured') renderTokenList();
-}, 30_000);
+  if (activeTab !== 'captured') return;
+  tokenList.querySelectorAll('.token-row-time[data-ts]').forEach(el => {
+    el.textContent = relativeTime(Number(el.dataset.ts));
+  });
+}, 10_000);
 
 // --- Public API called by devtools.js via panelWindow ---
 window.receiveToken = function(entry) {
@@ -368,11 +409,34 @@ window.receiveNavigated = function(url) {
   if (activeTab === 'captured') renderTokenList();
 };
 
+const collapseAllBtn = document.getElementById('collapseAllBtn');
+collapseAllBtn.addEventListener('click', () => {
+  const items = buildRenderItems(capturedTokens);
+  const allGroupIds = items.filter(i => i.type === 'group').map(i => i.groupId);
+  const allCollapsed = allGroupIds.every(id => collapsedGroupIds.has(id));
+  if (allCollapsed) {
+    allGroupIds.forEach(id => collapsedGroupIds.delete(id));
+    collapseAllBtn.textContent = 'Collapse all';
+  } else {
+    allGroupIds.forEach(id => collapsedGroupIds.add(id));
+    collapseAllBtn.textContent = 'Expand all';
+  }
+  renderTokenList();
+});
+
 clearCapturedBtn.addEventListener('click', () => {
   capturedTokens = [];
   selectedId = null;
   expandedInfoIds = new Set();
   expandedGroupIds = new Set();
+  collapsedGroupIds = new Set();
+  diffSlotAId = null;
+  diffSlotBId = null;
+  compareInput.value = '';
+  renderDiffSlotColors(compareDisplay, '');
+  compareSlot.classList.remove('active');
+  compareToggleBtn.textContent = '+ Compare';
+  collapseAllBtn.textContent = 'Collapse all';
   newCount = 0;
   capturedBadge.textContent = '0';
   capturedBadge.classList.remove('visible');
@@ -382,6 +446,191 @@ clearCapturedBtn.addEventListener('click', () => {
   // Tell devtools.js to clear its buffer so tokens don't reappear
   if (window.clearBuffer) window.clearBuffer();
 });
+
+// ── Diff ──────────────────────────────────────────────────────
+
+function renderDiffSlotColors(el, token) {
+  if (!token) { el.innerHTML = '<span class="placeholder">Paste token…</span>'; return; }
+  const parts = token.split('.');
+  if (parts.length !== 3) { el.textContent = token; return; }
+  el.innerHTML =
+    `<span class="part-header">${parts[0]}</span>` +
+    `<span class="dot-sep">.</span>` +
+    `<span class="part-payload">${parts[1]}</span>` +
+    `<span class="dot-sep">.</span>` +
+    `<span class="part-sig">${parts[2]}</span>`;
+}
+
+function diffObjects(objA, objB) {
+  const keys = new Set([...Object.keys(objA), ...Object.keys(objB)]);
+  return [...keys].map(key => {
+    const inA = Object.prototype.hasOwnProperty.call(objA, key);
+    const inB = Object.prototype.hasOwnProperty.call(objB, key);
+    if (inA && inB) {
+      const same = JSON.stringify(objA[key]) === JSON.stringify(objB[key]);
+      return { key, valueA: objA[key], valueB: objB[key], status: same ? 'same' : 'changed' };
+    }
+    if (inA) return { key, valueA: objA[key], valueB: undefined, status: 'only-a' };
+    return { key, valueA: undefined, valueB: objB[key], status: 'only-b' };
+  });
+}
+
+function buildAlignedDiff(objA, objB) {
+  const diffs = diffObjects(objA, objB);
+  const rows = diffs.map(({ key, valueA, valueB, status }) => {
+    const cellA = valueA !== undefined ? renderJsonNode(valueA, 0, false, key) : '';
+    const cellB = valueB !== undefined ? renderJsonNode(valueB, 0, false, key) : '';
+    return `<div class="diff-aligned-row diff-key-${status}">
+      <div class="diff-aligned-cell diff-aligned-a json-output${valueA === undefined ? ' diff-aligned-empty' : ''}">${cellA}</div>
+      <div class="diff-aligned-cell diff-aligned-b json-output${valueB === undefined ? ' diff-aligned-empty' : ''}">${cellB}</div>
+    </div>`;
+  }).join('');
+  return `<div class="diff-aligned-grid">${rows}</div>`;
+}
+
+function renderDiff() {
+  const rawA = hiddenInput.value.trim().replace(/\s+/g, '');
+  const rawB = compareInput.value.trim().replace(/\s+/g, '');
+
+  if (!rawA && !rawB) {
+    output.innerHTML = '<div class="diff-empty">Paste two JWTs to compare them</div>';
+    return;
+  }
+  if (!rawA || !rawB) {
+    output.innerHTML = '<div class="diff-empty">Paste both tokens to compare</div>';
+    return;
+  }
+
+  let headerA, payloadA, headerB, payloadB;
+  try {
+    headerA = base64UrlDecode(rawA.split('.')[0]);
+    payloadA = base64UrlDecode(rawA.split('.')[1]);
+  } catch { output.innerHTML = '<div class="error-state">Token A: invalid JWT</div>'; return; }
+  try {
+    headerB = base64UrlDecode(rawB.split('.')[0]);
+    payloadB = base64UrlDecode(rawB.split('.')[1]);
+  } catch { output.innerHTML = '<div class="error-state">Token B: invalid JWT</div>'; return; }
+
+  const allDiffs = diffObjects(headerA, headerB).concat(diffObjects(payloadA, payloadB));
+  const changedCount = allDiffs.filter(r => r.status !== 'same').length;
+
+  function section(labelClass, label, objA, objB) {
+    return `<div class="diff-json-section">
+      <div class="diff-section-header ${labelClass}"><span class="dot"></span>${label}</div>
+      ${buildAlignedDiff(objA, objB)}
+    </div>`;
+  }
+
+  const sigStatus = rawA.split('.')[2] === rawB.split('.')[2] ? 'same' : 'changed';
+
+  output.innerHTML = `
+    <div class="diff-summary">${changedCount === 0
+      ? 'Tokens are identical'
+      : `${changedCount} difference${changedCount !== 1 ? 's' : ''}`
+    }</div>
+    <div class="diff-json-col-headers">
+      <div><span class="diff-slot-badge diff-badge-a">A</span></div>
+      <div><span class="diff-slot-badge diff-badge-b">B</span></div>
+    </div>
+    ${section('header-label', 'Header', headerA, headerB)}
+    ${section('payload-label', 'Payload', payloadA, payloadB)}
+    <div class="diff-json-section">
+      <div class="diff-section-header sig-label"><span class="dot"></span>Signature</div>
+      <div class="diff-aligned-grid">
+        <div class="diff-aligned-row diff-key-${sigStatus}">
+          <div class="diff-aligned-cell diff-aligned-a diff-sig-col">${escapeHtml(rawA.split('.')[2])}</div>
+          <div class="diff-aligned-cell diff-aligned-b diff-sig-col">${escapeHtml(rawB.split('.')[2])}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let diffDebounceId = null;
+function autoRenderDiff() {
+  if (activeTab !== 'decode') return;
+  clearTimeout(diffDebounceId);
+  diffDebounceId = setTimeout(renderDiff, 200);
+}
+
+function renderOutput() {
+  const hasCompare = compareInput.value.trim().replace(/\s+/g, '').length > 0;
+  if (hasCompare) {
+    renderDiff();
+    syncSearchWithOutput();
+  } else {
+    decode(hiddenInput.value);
+  }
+}
+
+function addToDiffSlot(token, entryId) {
+  if (!hiddenInput.value.trim() || diffSlotAId === null) {
+    // Fill primary (A) — stay in Captured, show decoded in output panel
+    hiddenInput.value = token;
+    renderTokenColors(token);
+    diffSlotAId = entryId;
+    diffSlotBId = null;
+    compareInput.value = '';
+    renderDiffSlotColors(compareDisplay, '');
+    compareSlot.classList.remove('active');
+    compareToggleBtn.textContent = '+ Compare';
+    decode(token);
+    renderTokenList();
+  } else {
+    // Fill compare (B) — stay in Captured, show diff in output panel
+    compareInput.value = token;
+    renderDiffSlotColors(compareDisplay, token);
+    diffSlotBId = entryId;
+    compareSlot.classList.add('active');
+    compareToggleBtn.textContent = '× Compare';
+    renderDiff();
+    syncSearchWithOutput();
+    renderTokenList();
+  }
+}
+
+compareInput.addEventListener('input', () => {
+  if (diffSlotBId !== null) {
+    diffSlotBId = null;
+    renderTokenList();
+  }
+  renderDiffSlotColors(compareDisplay, compareInput.value.trim());
+  autoRenderDiff();
+});
+compareInput.addEventListener('paste', (e) => {
+  const pasted = e.clipboardData?.getData('text') ?? '';
+  setTimeout(() => {
+    if (diffSlotBId !== null) {
+      diffSlotBId = null;
+      renderTokenList();
+    }
+    renderDiffSlotColors(compareDisplay, (compareInput.value || pasted).trim());
+    autoRenderDiff();
+  }, 0);
+});
+compareDisplay.addEventListener('click', () => compareInput.focus());
+
+compareToggleBtn.addEventListener('click', () => {
+  const isActive = compareSlot.classList.toggle('active');
+  compareToggleBtn.textContent = isActive ? '× Compare' : '+ Compare';
+  if (!isActive) {
+    compareInput.value = '';
+    renderDiffSlotColors(compareDisplay, '');
+    diffSlotBId = null;
+    renderOutput();
+    renderTokenList();
+  }
+});
+
+compareClearBtn.addEventListener('click', () => {
+  compareInput.value = '';
+  renderDiffSlotColors(compareDisplay, '');
+  diffSlotBId = null;
+  renderOutput();
+  renderTokenList();
+});
+
+// ──────────────────────────────────────────────────────────────
 
 function base64UrlDecode(str) {
   str = str.replace(/-/g, '+').replace(/_/g, '/');
@@ -704,10 +953,26 @@ function decode(token) {
 // The colored div acts as display; the hidden textarea captures paste/input
 tokenDisplay.addEventListener('click', () => hiddenInput.focus());
 
-hiddenInput.addEventListener('input', () => decode(hiddenInput.value));
+hiddenInput.addEventListener('input', () => {
+  if (selectedId !== null || diffSlotAId !== null) {
+    selectedId = null;
+    diffSlotAId = null;
+    renderTokenList();
+  }
+  renderTokenColors(hiddenInput.value);
+  renderOutput();
+});
 hiddenInput.addEventListener('paste', (e) => {
   const pasted = e.clipboardData?.getData('text') ?? '';
-  setTimeout(() => decode(hiddenInput.value || pasted), 0);
+  setTimeout(() => {
+    if (selectedId !== null || diffSlotAId !== null) {
+      selectedId = null;
+      diffSlotAId = null;
+      renderTokenList();
+    }
+    renderTokenColors(hiddenInput.value || pasted);
+    renderOutput();
+  }, 0);
 });
 
 searchInput.addEventListener('input', () => {
@@ -755,6 +1020,14 @@ document.addEventListener('keydown', (event) => {
 
 clearBtn.addEventListener('click', () => {
   hiddenInput.value = '';
+  compareInput.value = '';
+  renderDiffSlotColors(compareDisplay, '');
+  compareSlot.classList.remove('active');
+  compareToggleBtn.textContent = '+ Compare';
+  selectedId = null;
+  diffSlotAId = null;
+  diffSlotBId = null;
+  renderTokenList();
   decode('');
 });
 
@@ -766,7 +1039,8 @@ function bindExampleBtn() {
   const btn = document.getElementById('loadExampleBtn');
   if (btn) btn.addEventListener('click', () => {
     hiddenInput.value = EXAMPLE_JWT;
-    decode(EXAMPLE_JWT);
+    renderTokenColors(EXAMPLE_JWT);
+    renderOutput();
   });
 }
 
@@ -780,6 +1054,60 @@ function loadPendingToken(token) {
   capturedPanel.classList.remove('active');
   inputPanel.classList.remove('hidden');
 }
+
+// ── Resize handle ─────────────────────────────────────────────
+
+const resizeHandle = document.getElementById('resizeHandle');
+const layoutEl = document.querySelector('.layout');
+const narrowMQ = window.matchMedia('(max-width: 560px)');
+
+function getActiveLeftPanel() {
+  if (activeTab === 'captured') return capturedPanel;
+  return inputPanel;
+}
+
+let isResizing = false;
+
+resizeHandle.addEventListener('mousedown', (e) => {
+  isResizing = true;
+  resizeHandle.classList.add('dragging');
+  document.body.style.cursor = narrowMQ.matches ? 'row-resize' : 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isResizing) return;
+  const panel = getActiveLeftPanel();
+  const rect = layoutEl.getBoundingClientRect();
+  if (narrowMQ.matches) {
+    const newH = Math.max(80, Math.min(rect.height - 80, e.clientY - rect.top));
+    panel.style.maxHeight = `${newH}px`;
+    panel.style.minHeight = `${newH}px`;
+  } else {
+    const newW = Math.max(160, Math.min(rect.width - 160, e.clientX - rect.left));
+    panel.style.width = `${newW}px`;
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (!isResizing) return;
+  isResizing = false;
+  resizeHandle.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
+
+// Reset inline sizes when crossing the breakpoint
+narrowMQ.addEventListener('change', () => {
+  [inputPanel, capturedPanel].forEach(p => {
+    p.style.width = '';
+    p.style.minHeight = '';
+    p.style.maxHeight = '';
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'session' && changes.pendingToken) {

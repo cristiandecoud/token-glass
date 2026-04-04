@@ -44,7 +44,7 @@ function renderCollapsedPreview(value) {
   }).join('') + (entries.length > 3 ? '<span class="json-punct">, </span><span class="json-ellipsis">…</span>' : '');
 }
 
-function renderJsonNode(value, depth = 0, trailingComma = false, key = null) {
+export function renderJsonNode(value, depth = 0, trailingComma = false, key = null) {
   const comma = trailingComma ? '<span class="json-punct">,</span>' : '';
   const keyHtml = key === null
     ? ''
