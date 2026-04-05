@@ -4,7 +4,8 @@
       "Bash(python3 -c \"from PIL import Image; print\\(''PIL ok''\\)\")",
       "Bash(grep -E \"\\\\.\\(html|css\\)$\")",
       "Bash(gh auth:*)",
-      "Bash(gh gist:*)"
+      "Bash(gh gist:*)",
+      "Bash(wc -l /Users/cdecoud/dev/personal/token-glass/*.js)"
     ]
   }
 }

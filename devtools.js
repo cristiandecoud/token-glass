@@ -6,7 +6,7 @@ const buffer = [];
 const seen = new Set();
 let panelWindow = null;
 
-function extractJWTs(text, url, source, meta = {}) {
+function extractJWTs(text, url, meta = {}) {
   const matches = text.match(JWT_RE);
   if (!matches) return;
   for (const token of matches) {
@@ -23,14 +23,7 @@ function extractJWTs(text, url, source, meta = {}) {
       continue;
     }
 
-    const entry = {
-      id: Math.random().toString(36).slice(2),
-      token,
-      url,
-      source,
-      timestamp: Date.now(),
-      ...meta,
-    };
+    const entry = { id: Math.random().toString(36).slice(2), token, url, timestamp: Date.now(), ...meta };
     if (buffer.length >= MAX_BUFFER) buffer.shift();
     buffer.push(entry);
     if (panelWindow) panelWindow.receiveToken(entry);
@@ -50,62 +43,35 @@ chrome.devtools.network.onRequestFinished.addListener((req) => {
   // 1. Request headers
   for (const h of req.request.headers) {
     if (h.value && h.value.length > 10) {
-      extractJWTs(h.value, url, `Request Header: ${h.name}`, {
-        ...requestMeta,
-        sourceSide: 'request',
-        sourceKind: 'header',
-        sourceName: h.name,
-      });
+      extractJWTs(h.value, url, { ...requestMeta, sourceSide: 'request', sourceKind: 'header', sourceName: h.name });
     }
   }
 
   // 2. Response headers
   for (const h of req.response.headers) {
     if (h.value && h.value.length > 10) {
-      extractJWTs(h.value, url, `Response Header: ${h.name}`, {
-        ...requestMeta,
-        sourceSide: 'response',
-        sourceKind: 'header',
-        sourceName: h.name,
-      });
+      extractJWTs(h.value, url, { ...requestMeta, sourceSide: 'response', sourceKind: 'header', sourceName: h.name });
     }
   }
 
   // 3. URL query params
-  extractJWTs(url, url, 'URL Parameter', {
-    ...requestMeta,
-    sourceSide: 'request',
-    sourceKind: 'query',
-    sourceName: 'URL parameter',
-  });
+  extractJWTs(url, url, { ...requestMeta, sourceSide: 'request', sourceKind: 'query', sourceName: 'URL parameter' });
 
   // 4. Response body (async) — field-aware for JSON responses
   req.getContent((body) => {
     if (!body || body.length === 0) return;
-    const scan = body.length > MAX_BODY_SCAN
-      ? body.slice(0, MAX_BODY_SCAN)
-      : body;
+    const scan = body.slice(0, MAX_BODY_SCAN);
 
     // Extract JWTs with their JSON field names (e.g. access_token, refresh_token)
     const fieldRe = /"([^"]{1,64})":\s*"(eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})"/g;
     let fieldMatch;
     while ((fieldMatch = fieldRe.exec(scan)) !== null) {
-      extractJWTs(fieldMatch[2], url, `Response Body: ${fieldMatch[1]}`, {
-        ...requestMeta,
-        sourceSide: 'response',
-        sourceKind: 'body',
-        sourceName: fieldMatch[1],
-      });
+      extractJWTs(fieldMatch[2], url, { ...requestMeta, sourceSide: 'response', sourceKind: 'body', sourceName: fieldMatch[1] });
     }
 
     // Generic fallback for JWTs not wrapped in a JSON key-value pair
     // (the `seen` set in extractJWTs deduplicates overlap with field matches above)
-    extractJWTs(scan, url, 'Response Body', {
-      ...requestMeta,
-      sourceSide: 'response',
-      sourceKind: 'body',
-      sourceName: 'response body',
-    });
+    extractJWTs(scan, url, { ...requestMeta, sourceSide: 'response', sourceKind: 'body', sourceName: 'response body' });
   });
 });
 
