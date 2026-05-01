@@ -1,5 +1,5 @@
-import { escapeHtml, renderJsonNode } from './json-tree.js';
-import { base64UrlDecode } from './jwt.js';
+import { escapeHtml, renderJsonNode } from '../core/json-tree.js';
+import { base64UrlDecode } from '../core/jwt.js';
 
 export function diffObjects(objA, objB) {
   const keys = new Set([...Object.keys(objA), ...Object.keys(objB)]);

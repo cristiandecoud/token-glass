@@ -1,5 +1,5 @@
-import { renderJsonTree } from './json-tree.js';
-import { base64UrlDecode } from './jwt.js';
+import { renderJsonTree } from '../core/json-tree.js';
+import { base64UrlDecode } from '../core/jwt.js';
 import { renderDiff } from './diff.js';
 import { createSearch } from './search.js';
 import { createCapturedPanel } from './captured.js';
@@ -91,14 +91,6 @@ async function copyToClipboard(text) {
   try { return document.execCommand('copy'); } finally { ta.remove(); }
 }
 
-function addTimestampAnnotations(payload) {
-  const copy = { ...payload };
-  ['exp', 'iat', 'nbf'].forEach(field => {
-    if (copy[field]) copy[`${field}_human`] = new Date(copy[field] * 1000).toLocaleString();
-  });
-  return copy;
-}
-
 // ── Decode ─────────────────────────────────────────────────────
 
 function decode(token) {
@@ -126,8 +118,6 @@ function decode(token) {
   try { payload = base64UrlDecode(parts[1]); }
   catch(e) { output.innerHTML = `<div class="error-state">Could not decode payload: ${e.message}</div>`; search.sync(); return; }
 
-  const annotated = addTimestampAnnotations(payload);
-
   output.innerHTML = `
     <div class="section">
       <div class="section-header header-label">
@@ -141,7 +131,7 @@ function decode(token) {
         <span class="dot"></span> Payload
         <button class="copy-btn" data-tooltip="Copy" data-copy="${encodeURIComponent(JSON.stringify(payload, null, 2))}">${copyIcon}</button>
       </div>
-      <div class="section-content"><div class="json-output">${renderJsonTree(annotated)}</div></div>
+      <div class="section-content"><div class="json-output">${renderJsonTree(payload)}</div></div>
     </div>
     <div class="section">
       <div class="section-header sig-label">
@@ -430,6 +420,47 @@ const captured = createCapturedPanel(
 output.innerHTML = emptyState;
 bindExampleBtn();
 captured.renderTokenList();
+
+// ── Claim info tooltip (fixed-position, escapes overflow clips) ─
+
+const claimTooltip = document.createElement('div');
+claimTooltip.id = 'claimTooltip';
+document.body.appendChild(claimTooltip);
+
+let tooltipHideTimer = null;
+
+document.addEventListener('mouseover', e => {
+  const icon = e.target.closest('.claim-info');
+  if (!icon) return;
+  clearTimeout(tooltipHideTimer);
+  const text = icon.dataset.tooltip;
+  if (!text) return;
+  claimTooltip.textContent = text;
+  claimTooltip.style.opacity = '0';
+  claimTooltip.style.display = 'block';
+
+  const iconRect = icon.getBoundingClientRect();
+  const tipRect  = claimTooltip.getBoundingClientRect();
+  let left = iconRect.left + iconRect.width / 2 - tipRect.width / 2;
+  let top  = iconRect.top - tipRect.height - 7;
+
+  // clamp horizontally inside viewport
+  left = Math.max(6, Math.min(left, window.innerWidth - tipRect.width - 6));
+  // if not enough room above, flip below
+  if (top < 6) top = iconRect.bottom + 7;
+
+  claimTooltip.style.left = `${left}px`;
+  claimTooltip.style.top  = `${top}px`;
+  claimTooltip.style.opacity = '1';
+});
+
+document.addEventListener('mouseout', e => {
+  const icon = e.target.closest('.claim-info');
+  if (!icon) return;
+  tooltipHideTimer = setTimeout(() => {
+    claimTooltip.style.opacity = '0';
+  }, 80);
+});
 
 // ── Context menu (background → session storage → panel) ────────
 

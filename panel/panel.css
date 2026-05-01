@@ -340,9 +340,8 @@ header span { font-size: 11px; color: var(--text-muted); }
   font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.7;
-  white-space: normal;
-  word-break: break-word;
   padding-left: 12px;
+  overflow-x: auto;
 }
 
 /* JSON tree — .json-tree and .json-children share identical layout */
@@ -367,6 +366,7 @@ header span { font-size: 11px; color: var(--text-muted); }
   position: relative;
   padding-left: calc(var(--depth, 0) * 16px);
   min-height: 20px;
+  white-space: nowrap;
 }
 
 .json-summary,
@@ -392,10 +392,9 @@ header span { font-size: 11px; color: var(--text-muted); }
 
 .json-open-label,
 .json-closed-label {
-  min-width: 0;
   display: inline-flex;
   align-items: baseline;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .json-node > .json-summary .json-open-label          { display: none; }
@@ -412,7 +411,7 @@ header span { font-size: 11px; color: var(--text-muted); }
   text-transform: uppercase;
 }
 
-.json-preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.json-preview { white-space: nowrap; }
 
 .json-punct  { color: var(--json-punct); }
 .json-key    { color: var(--json-key); }
@@ -420,6 +419,96 @@ header span { font-size: 11px; color: var(--text-muted); }
 .json-number { color: var(--json-number); }
 .json-bool   { color: var(--json-bool); }
 .json-null   { color: var(--json-null); }
+
+/* ── Claim breakdowns (inline) ────────────────────────────── */
+.claim-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.claim-bd-date {
+  color: var(--text-muted);
+}
+
+.claim-bd-sep {
+  color: var(--text-faint);
+}
+
+.claim-bd-rel {
+  color: var(--text-faint);
+}
+
+.claim-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.claim-expired {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+}
+
+.claim-valid {
+  color: #6bff9e;
+  background: rgba(107, 255, 158, 0.10);
+  border: 1px solid rgba(107, 255, 158, 0.22);
+}
+
+.scope-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  color: var(--accent-light);
+  background: var(--accent-bg);
+  border: 1px solid rgba(157, 123, 255, 0.22);
+}
+
+/* ── Claim info key underline ─────────────────────────────── */
+.json-key.claim-info {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--text-faint);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.json-key.claim-info:hover {
+  text-decoration-color: var(--accent-light);
+}
+
+/* ── Floating claim tooltip (position:fixed, injected by JS) ── */
+#claimTooltip {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-tooltip);
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 5px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  white-space: normal;
+  max-width: 220px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  text-align: left;
+}
 
 .search-hit {
   background: var(--search-hit-bg);

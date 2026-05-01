@@ -86,7 +86,7 @@ function clearBufferData() {
 
 let panelInitialized = false;
 
-chrome.devtools.panels.create('Token Glass', 'icons/icon16.png', 'panel.html', (panel) => {
+chrome.devtools.panels.create('Token Glass', 'icons/icon16.png', 'panel/panel.html', (panel) => {
   panel.onShown.addListener((win) => {
     panelWindow = win;
     panelWindow.clearBuffer = clearBufferData;

@@ -1,5 +1,5 @@
-import { escapeHtml } from './json-tree.js';
-import { base64UrlDecode } from './jwt.js';
+import { escapeHtml } from '../core/json-tree.js';
+import { base64UrlDecode } from '../core/jwt.js';
 
 // ── Pure helpers ───────────────────────────────────────────────
 
