@@ -978,3 +978,41 @@ header span { font-size: 11px; color: var(--text-muted); }
 ::-webkit-scrollbar       { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Footer ───────────────────────────────────────────────── */
+.app-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-dark);
+  flex-shrink: 0;
+}
+
+.footer-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.03em;
+}
+
+.footer-sep {
+  font-size: 10px;
+  color: var(--border-soft);
+}
+
+.footer-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.footer-link:hover {
+  color: var(--accent-light);
+}

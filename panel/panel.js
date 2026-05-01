@@ -462,6 +462,16 @@ document.addEventListener('mouseout', e => {
   }, 80);
 });
 
+// ── Footer links ────────────────────────────────────────────────
+
+const REPO_URL  = 'https://github.com/cristiandecoud/token-glass';
+const ISSUE_URL = 'https://github.com/cristiandecoud/token-glass/issues/new';
+const PRIVACY_URL = 'https://github.com/cristiandecoud/token-glass/blob/main/PRIVACY_POLICY.md';
+
+document.getElementById('footerGithub').addEventListener('click', () => window.open(REPO_URL));
+document.getElementById('footerBug').addEventListener('click',    () => window.open(ISSUE_URL));
+document.getElementById('footerPrivacy').addEventListener('click', () => window.open(PRIVACY_URL));
+
 // ── Context menu (background → session storage → panel) ────────
 
 chrome.storage.onChanged.addListener((changes, area) => {

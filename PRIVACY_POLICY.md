@@ -1,13 +1,23 @@
 # Privacy Policy — Token Glass
 
-**Last updated: March 28, 2026**
+**Last updated: May 1, 2026**
 
-Token Glass does not collect, transmit, or share any user data.
+## Data collection
 
-JWT tokens captured from network requests are processed and displayed locally within your browser's DevTools. All data is stored temporarily in `chrome.storage.session` and is automatically cleared when the browser session ends.
+Token Glass does not collect, transmit, or share any user data. All processing happens locally inside your browser's DevTools.
 
-No data ever leaves your device.
+## How data is handled
 
-## Contact
+JWT tokens captured from network requests are decoded and displayed entirely within your browser. Token data is held temporarily in `chrome.storage.session` and is cleared automatically when the browser session ends. Nothing is written to disk, sent to a server, or shared with any third party.
 
-For questions, open an issue at the [Token Glass repository](https://github.com/cdecoud/token-glass).
+## Open source
+
+Token Glass is open source software. The full source code is publicly available at [github.com/cristiandecoud/token-glass](https://github.com/cristiandecoud/token-glass) and can be audited at any time.
+
+## Reporting issues
+
+Found a bug or have a question? Please [open an issue](https://github.com/cristiandecoud/token-glass/issues/new) on GitHub. Include the Token Glass version and a description of the problem.
+
+## Changes to this policy
+
+If this policy changes, the updated version will be committed to the repository with a new "Last updated" date.
