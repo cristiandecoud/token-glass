@@ -1,6 +1,6 @@
 # Privacy Policy — Token Glass
 
-**Last updated: May 1, 2026**
+**Last updated: May 3, 2026**
 
 ## Data collection
 
