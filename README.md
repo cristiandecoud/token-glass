@@ -17,7 +17,7 @@ A Chrome DevTools extension for inspecting and decoding JWTs in real time. Token
 
 ### From the Chrome Web Store
 
-*(Coming soon)*
+[![Available in the Chrome Web Store](https://storage.googleapis.com/web-dev-uploads/image/WlD8wC6g8khYWPJUsQceQkhXSlv1/UV4C4ybeBTsZt43U4xis.png)](https://chromewebstore.google.com/detail/token-glass/pnhjafdnkgddffeegbifnfpdifdkpbcd)
 
 ### Manual (Developer mode)
 
